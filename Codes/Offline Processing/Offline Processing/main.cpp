@@ -3,23 +3,106 @@
 #include <iostream>
 #include <highgui.h>
 
-#define fx 705.808250
-#define fy 705.634250
-#define cx 314.275667
-#define cy 241.660750
+#include "opencv2/ml/ml.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
 
 #define pi 3.14159265359
 #define frame_rate 30
 #define radius_earth 6371000
 
+#define fx 705.808250
+#define fy 705.634250
+#define cx 314.275667
+#define cy 241.660750
+
 #define videoFile "video.avi"
 #define sensorFile "measurements.txt"
 
 using namespace std;
-ifstream inputs(sensorFile); 
+using namespace cv;
 
+ifstream inputs(sensorFile); 
 float measurements[10]; CvPoint myPoint; 
 
+/*
+Steps:
+	1. Learn from images
+	2. Get region of interest (for time stamp) in input video at t = 0 from user
+	3. Analyze the time stamp and find its numerical value
+	4. Get the measurements accordinngly from the sensor input data file
+	5. Implement positioning algorithm and store the errors in output file
+	6. Plot the error graphs
+
+	Note: Certain parts of code (for implementing step 1) is taken from internet. However, the code was modified as per requirement
+	Reference: http://my-tech-talk.blogspot.in/2012/06/digit-recognition-with-opencv.html
+*/
+
+// Number Recognition
+/*
+void training();
+Mat* getRegionOfInterest(Mat* img);
+char detectDigit(Mat* img);
+*/
+// Position Determination
+void get_measurements();
+void skip(CvCapture* capture, int n_frames);
+void my_mouse_callback(int event, int x, int y, int flags, void* param);
+CvMat* findTargetPosition();
+
+int main()
+{
+	//training();
+	CvMat* targetPosition = cvCreateMat(4,1,CV_32FC1); 
+	float X_tgt, Y_tgt, Z_tgt, err_X, err_Y, err_Z, err_net;
+
+	CvCapture* capture = cvCreateFileCapture(videoFile);
+	IplImage* frame;
+
+	while(1)
+	{
+		frame = cvQueryFrame(capture); 
+		cvShowImage("Video", frame);
+		cvSetMouseCallback("Video", my_mouse_callback, (void*) frame);
+		char c = cvWaitKey(0);
+		if(c == 's')
+			skip(capture, frame_rate);
+		else
+		{
+			get_measurements();
+			targetPosition = findTargetPosition();
+
+			X_tgt = CV_MAT_ELEM(*targetPosition, float,0,0);
+			Y_tgt = CV_MAT_ELEM(*targetPosition, float,1,0);
+			Z_tgt = CV_MAT_ELEM(*targetPosition, float,2,0);
+
+			err_X = X_tgt - measurements[7]*pi/180.0f;
+			err_Y = Y_tgt - measurements[8]*pi/180.0f;
+			err_Z = Z_tgt - measurements[9]*pi/180.0f;
+
+			err_net = sqrt(err_X*err_X + err_Y*err_Y + err_Z*err_Z);
+			cout<<"Errors are : "<<err_X<<" "<<err_Y<<" "<<err_Z<<endl;
+			cout<<"Net Error is "<<err_net<<endl;
+			skip(capture, frame_rate-1);
+		}
+	}
+}
+
+/*
+void training()
+{
+}
+
+Mat* getRegionOfInterest(Mat* img)
+{
+}
+
+char detectDigit(Mat* img)
+{
+}*/
+
+
+// Target Position Estimation Related Functions
 void get_measurements()
 {
 	inputs>>measurements[0]; // time
@@ -180,42 +263,4 @@ CvMat* findTargetPosition()
 	cvAdd(p_cc, p_dash, p_obj);
 	
 	return p_obj;
-}
-
-int main()
-{
-	CvMat* targetPosition = cvCreateMat(4,1,CV_32FC1); 
-	float X_tgt, Y_tgt, Z_tgt, err_X, err_Y, err_Z, err_net;
-
-	CvCapture* capture = cvCreateFileCapture(videoFile);
-	IplImage* frame;
-	
-	while(1)
-	{
-		frame = cvQueryFrame(capture); 
-		cvShowImage("Video", frame);
-		cvSetMouseCallback("Video", my_mouse_callback, (void*) frame);
-		char c = cvWaitKey(0);
-		if(c == 's')
-			skip(capture, frame_rate);
-		else
-		{
-			get_measurements();
-			//for(int i=0;i<7;i++) cout<<measurements[i]<<" "; cout<<endl;
-
-			targetPosition = findTargetPosition();
-			X_tgt = CV_MAT_ELEM(*targetPosition, float,0,0);
-			Y_tgt = CV_MAT_ELEM(*targetPosition, float,1,0);
-			Z_tgt = CV_MAT_ELEM(*targetPosition, float,2,0);
-
-			err_X = X_tgt - measurements[7]*pi/180.0f;
-			err_Y = Y_tgt - measurements[8]*pi/180.0f;
-			err_Z = Z_tgt - measurements[9]*pi/180.0f;
-
-			err_net = sqrt(err_X*err_X + err_Y*err_Y + err_Z*err_Z);
-			cout<<"Errors are : "<<err_X<<" "<<err_Y<<" "<<err_Z<<endl;
-			cout<<"Net Error is "<<err_net<<endl;
-			skip(capture, frame_rate-1);
-		}
-	}
 }
