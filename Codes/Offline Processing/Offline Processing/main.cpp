@@ -22,6 +22,13 @@
 using namespace std;
 using namespace cv;
 
+const int train_samples = 1;
+const int classes = 10;
+const int sizex = 16;
+const int sizey = 25;
+const int ImageSize = sizex * sizey;
+char pathToImages[] = "../images";
+
 ifstream inputs(sensorFile); 
 float measurements[10]; CvPoint myPoint; 
 
@@ -39,13 +46,16 @@ Steps:
 */
 
 // Number Recognition
-/*
+void PreProcessImage(Mat *inImage,Mat *outImage,int sizex, int sizey);
+void LearnFromImages(CvMat* trainData, CvMat* trainClasses);
+void RunSelfTest(KNearest& knn2);
+void AnalyseImage(KNearest knearest);
 void training();
 Mat* getRegionOfInterest(Mat* img);
 char detectDigit(Mat* img);
-*/
+
 // Position Determination
-void get_measurements();
+void get_measurements(int time_secs);
 void skip(CvCapture* capture, int n_frames);
 void my_mouse_callback(int event, int x, int y, int flags, void* param);
 CvMat* findTargetPosition();
@@ -69,7 +79,7 @@ int main()
 			skip(capture, frame_rate);
 		else
 		{
-			get_measurements();
+			get_measurements(int time_secs);
 			targetPosition = findTargetPosition();
 
 			X_tgt = CV_MAT_ELEM(*targetPosition, float,0,0);
@@ -88,11 +98,25 @@ int main()
 	}
 }
 
-/*
+
+
 void training()
 {
+	CvMat* trainData = cvCreateMat(classes * train_samples,ImageSize, CV_32FC1);
+	CvMat* trainClasses = cvCreateMat(classes * train_samples, 1, CV_32FC1);
+
+	namedWindow("single", CV_WINDOW_AUTOSIZE);
+	namedWindow("all",CV_WINDOW_AUTOSIZE);
+
+	LearnFromImages(trainData, trainClasses);
+	KNearest knearest(trainData, trainClasses);
+	RunSelfTest(knearest);
+
+	cout << "Lets go!\n";
+	AnalyseImage(knearest);
 }
 
+/*
 Mat* getRegionOfInterest(Mat* img)
 {
 }
@@ -103,7 +127,7 @@ char detectDigit(Mat* img)
 
 
 // Target Position Estimation Related Functions
-void get_measurements()
+void get_measurements(int time_secs)
 {
 	inputs>>measurements[0]; // time
 	inputs>>measurements[1]; inputs>>measurements[2]; inputs>>measurements[3]; // phi, theta, psi
