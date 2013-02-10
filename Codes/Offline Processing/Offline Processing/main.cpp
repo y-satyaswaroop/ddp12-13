@@ -55,6 +55,7 @@ Mat* getRegionOfInterest(Mat* img);
 char detectDigit(Mat* img);
 
 // Position Determination
+int get_time();
 void get_measurements(int time_secs);
 void skip(CvCapture* capture, int n_frames);
 void my_mouse_callback(int event, int x, int y, int flags, void* param);
@@ -69,6 +70,7 @@ int main()
 	CvCapture* capture = cvCreateFileCapture(videoFile);
 	IplImage* frame;
 
+	int time_secs;
 	while(1)
 	{
 		frame = cvQueryFrame(capture); 
@@ -79,7 +81,8 @@ int main()
 			skip(capture, frame_rate);
 		else
 		{
-			get_measurements(int time_secs);
+			time_secs = get_time();
+			get_measurements(time_secs);
 			targetPosition = findTargetPosition();
 
 			X_tgt = CV_MAT_ELEM(*targetPosition, float,0,0);
@@ -127,12 +130,39 @@ char detectDigit(Mat* img)
 
 
 // Target Position Estimation Related Functions
-void get_measurements(int time_secs)
+
+int get_time()
+{
+	int time;
+
+	cout<<"Enter value of time as seen in the frame"<<endl;
+	cin>>time;
+	return time;
+}
+
+void get_measurements(int currentTime)
 {
 	inputs>>measurements[0]; // time
-	inputs>>measurements[1]; inputs>>measurements[2]; inputs>>measurements[3]; // phi, theta, psi
-	inputs>>measurements[4]; inputs>>measurements[5]; inputs>>measurements[6]; // location of uav
-	inputs>>measurements[7]; inputs>>measurements[8]; inputs>>measurements[9]; // location of target (actual)
+	if (measurements[0]-currentTime == 0)
+	{
+		inputs>>measurements[1]; inputs>>measurements[2]; inputs>>measurements[3]; // phi, theta, psi
+		inputs>>measurements[4]; inputs>>measurements[5]; inputs>>measurements[6]; // location of uav
+		inputs>>measurements[7]; inputs>>measurements[8]; inputs>>measurements[9]; // location of target (actual)
+	}
+	else if(measurements[0] < currentTime)
+	{
+		float dump;
+		for(int i = 0; i<9; i++)
+			inputs>>dump;
+		get_measurements(currentTime);
+	}
+
+	else if(measurements[0] > currentTime)
+	{
+		cout<<"Measurements in the sensor file missing for the current frame, please press 's'"<<endl;
+	}
+	
+
 }
 
 void skip(CvCapture* capture, int n_frames)
